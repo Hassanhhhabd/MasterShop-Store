@@ -1,1 +1,115 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Shop | نظام التتبع الذكي</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        :root { --main-color: #00bfa5; --bg-color: #0f172a; --card-bg: #1e293b; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: white; margin: 0; padding: 0; text-align: right; }
+        .header { background: var(--card-bg); padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--main-color); }
+        .user-info { font-size: 12px; color: #94a3b8; }
+        .balance-card { background: var(--main-color); color: white; padding: 8px 15px; border-radius: 8px; font-weight: bold; }
+        .container { padding: 15px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .category-card { background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid #334155; cursor: pointer; transition: 0.3s; }
+        .category-card:hover { transform: translateY(-5px); border-color: var(--main-color); }
+        .category-card img { width: 100%; height: 110px; object-fit: cover; }
+        .category-card h4 { margin: 10px; font-size: 14px; text-align: center; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: var(--card-bg); width: 90%; max-width: 400px; border-radius: 15px; padding: 20px; border: 1px solid var(--main-color); }
+        .input-group { margin-top: 15px; }
+        input { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; margin-top: 5px; box-sizing: border-box; }
+        .btn-buy { background: var(--main-color); color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-size: 16px; margin-top: 15px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
 
+    <div class="header">
+        <div>
+            <div class="store-name">Master Shop 🛍️</div>
+            <div class="user-info">ID: <span id="display-user-id">جاري التحميل...</span></div>
+        </div>
+        <div class="balance-card">رصيدك: <span id="user-balance">0</span> ل.س</div>
+    </div>
+
+    <div class="container" id="categories-container">
+        </div>
+
+    <div id="buy-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="selected-item-title">تأكيد الطلب</h3>
+            <p id="selected-price-text" style="color: var(--main-color); font-weight: bold;"></p>
+            <div class="input-group">
+                <label id="target-label">أدخل الـ Player ID (المكان المراد الشحن له):</label>
+                <input type="text" id="target-id" placeholder="مثلاً: 51234455">
+            </div>
+            <button class="btn-buy" onclick="processOrder()">إرسال الطلب للمراجعة 🚀</button>
+            <button onclick="closeModal('buy-modal')" style="background:none; border:none; color:#94a3b8; width:100%; margin-top:10px;">إلغاء</button>
+        </div>
+    </div>
+
+    <script>
+        // تم استبدال الرابط بنجاح كما طلبت
+        const firebaseConfig = { databaseURL: "https://mastershop-cda4f-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('user_id') || "Guest_" + Math.floor(Math.random() * 1000);
+        document.getElementById('display-user-id').innerText = userId;
+
+        db.ref('users/' + userId + '/balance').on('value', snap => {
+            document.getElementById('user-balance').innerText = snap.val() || 0;
+        });
+
+        db.ref('categories').on('value', snapshot => {
+            const container = document.getElementById('categories-container');
+            container.innerHTML = '';
+            snapshot.forEach(child => {
+                const cat = child.val();
+                container.innerHTML += `
+                    <div class="category-card" onclick="openOrderModal('${cat.name}', '${cat.price}')">
+                        <img src="${cat.image}" alt="${cat.name}">
+                        <h4>${cat.name}</h4>
+                        <p style="font-size:12px; color:var(--main-color); text-align:center;">${cat.price} ل.س</p>
+                    </div>`;
+            });
+        });
+
+        let currentProduct = "";
+        let currentPrice = 0;
+
+        function openOrderModal(name, price) {
+            currentProduct = name;
+            currentPrice = price;
+            document.getElementById('selected-item-title').innerText = "شراء: " + name;
+            document.getElementById('selected-price-text').innerText = "السعر: " + price + " ل.س";
+            document.getElementById('buy-modal').style.display = 'flex';
+        }
+
+        function processOrder() {
+            const targetId = document.getElementById('target-id').value;
+            if(!targetId) return alert("يرجى إدخال الآيدي!");
+
+            const orderData = {
+                customer_id: userId,
+                product: currentProduct,
+                target_player_id: targetId,
+                price: currentPrice,
+                status: "pending",
+                timestamp: Date.now()
+            };
+
+            db.ref('orders').push(orderData).then(() => {
+                alert("تم إرسال طلبك بنجاح!");
+                closeModal('buy-modal');
+            });
+        }
+
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    </script>
+</body>
+  </html>
+  
